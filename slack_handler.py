@@ -17,6 +17,8 @@ cfg = Config(f)
 slack_url = os.environ["SLACK_URL"]
 slack = slackweb.Slack(url=slack_url)
 container_hostname = os.environ["HOSTNAME"]
+APPNAME = os.environ["INSTANCE_NAME"]
+ENV = os.environ["ENV"]
 
 aws_metadata_url = "http://169.254.169.254/latest/"
 aws_metadata_iamCredentialsPath = "meta-data/iam/security-credentials/"
@@ -118,6 +120,7 @@ def getTags(resource, tagkey, retries = 0, wait = 0):
 
 aws_instance_name = getTags(aws_instanceId, "Name")
 instanceDetails = str(datetime.datetime.now()) + "\n"+ "Process on: " + aws_instance_name + ", " + aws_availabilityZone + ", " + aws_privateIp
+title_message = APPNAME + ", " + ENV
 
 def write_stdout(s):
     # only eventlistener protocol messages may be sent to stdout
@@ -140,25 +143,25 @@ def main():
 
         if 'PROCESS_STATE_STARTING' == headers['eventname']:
             attachments = []
-            attachment = {"title": cfg.messages.start.title, "color": "warning", "text" : message }
+            attachment = {"title": "Starting: " + title_message, "color": "warning", "text" : message }
             attachments.append(attachment)
             slack.notify(attachments=attachments)
 
         elif 'PROCESS_STATE_STARTED' == headers['eventname'] or 'PROCESS_STATE_RUNNING' == headers['eventname']:
             attachments = []
-            attachment = {"title": cfg.messages.running.title, "color": "good", "text": message }
+            attachment = {"title": "RUNNING: " + title_message, "color": "good", "text": message }
             attachments.append(attachment)
             slack.notify(attachments=attachments)
 
         elif 'PROCESS_STATE_EXITED' == headers['eventname'] or 'PROCESS_STATE_STOPPED' == headers['eventname']:
             attachments = []
-            attachment = {"title": cfg.messages.stop.title, "color": "danger", "text": message }
+            attachment = {"title": "STOPPED: " + title_message, "color": "danger", "text": message }
             attachments.append(attachment)
             slack.notify(attachments=attachments)
 
         elif 'PROCESS_STATE_FATAL' == headers['eventname']:
             attachments = []
-            attachment = {"title": cfg.messages.fatal.title, "color": "danger", "text": message }
+            attachment = {"title": "FATAL: " + title_message, "color": "danger", "text": message }
             attachments.append(attachment)
             slack.notify(attachments=attachments)
 
