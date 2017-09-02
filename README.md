@@ -7,7 +7,7 @@ Little tool to help monitor server status
 Python 2.7 with pip
 
 ## Configuration
-Refer to [supervisord.conf.sample](conf/supervisord.conf.sample) and [slack.cfg.sample](conf/slack.cfg.sample)
+Refer to [supervisord.conf.sample](conf/supervisord.conf) and [slack.cfg.sample](conf/slack.cfg)
 
 where slack_url is the API url of slack incoming webhook
 

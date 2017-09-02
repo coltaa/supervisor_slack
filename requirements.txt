@@ -2,3 +2,5 @@ config==0.3.9
 meld3==1.0.2
 slackweb==1.0.5
 supervisor==3.2.3
+boto3
+requests
