@@ -18,7 +18,14 @@ aws_metadata_InstanceIdentity = "dynamic/instance-identity/document"
 f = file(os.path.join(os.path.dirname(__file__), 'conf/slack.cfg'))
 cfg = Config(f)
 
-slack = slackweb.Slack(url=cfg.slack_url)
+try:
+   os.environ["SLACK_URL"]
+except KeyError:
+   print "Please set the environment variable FOO"
+   sys.exit(1)
+
+slack_url = os.environ["SLACK_URL"]
+slack = slackweb.Slack(url=slack_url)
 
 
 def write_stdout(s):
