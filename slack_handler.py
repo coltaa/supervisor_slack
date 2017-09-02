@@ -3,39 +3,26 @@
 import sys
 import slackweb
 import os
+import datetime
 from config import Config
 import boto3
 import requests
 from time import sleep
+from supervisor.childutils import listener
+
+f = file(os.path.join(os.path.dirname(__file__), 'conf/slack.cfg'))
+cfg = Config(f)
+
+#slack = slackweb.Slack(url=cfg.slack_url)
+slack_url = os.environ["SLACK_URL"]
+slack = slackweb.Slack(url=slack_url)
+container_hostname = os.environ["HOSTNAME"]
 
 aws_metadata_url = "http://169.254.169.254/latest/"
 aws_metadata_iamCredentialsPath = "meta-data/iam/security-credentials/"
 aws_metadata_AZPath = "meta-data/placement/availability-zone/"
 aws_metadata_InstanceTypePath = "meta-data/instance-type/"
 aws_metadata_InstanceIdentity = "dynamic/instance-identity/document"
-
-
-f = file(os.path.join(os.path.dirname(__file__), 'conf/slack.cfg'))
-cfg = Config(f)
-
-try:
-   os.environ["SLACK_URL"]
-except KeyError:
-   print "Please set the environment variable FOO"
-   sys.exit(1)
-
-slack_url = os.environ["SLACK_URL"]
-slack = slackweb.Slack(url=slack_url)
-
-
-def write_stdout(s):
-    # only eventlistener protocol messages may be sent to stdout
-    sys.stdout.write(s)
-    sys.stdout.flush()
-
-def write_stderr(s):
-    sys.stderr.write(s)
-    sys.stderr.flush()
 
 def getInstanceRole():
     try:
@@ -130,42 +117,48 @@ def getTags(resource, tagkey, retries = 0, wait = 0):
         getTags(resource, tagkey, retries, wait )
 
 aws_instance_name = getTags(aws_instanceId, "Name")
-aws_private_ip = getTags(aws_instanceId, "Name")
+instanceDetails = str(datetime.datetime.now()) + "\n"+ "Process on: " + aws_instance_name + ", " + aws_availabilityZone + ", " + aws_privateIp
 
+def write_stdout(s):
+    # only eventlistener protocol messages may be sent to stdout
+    sys.stdout.write(s)
+    sys.stdout.flush()
+
+def write_stderr(s):
+    sys.stderr.write(s)
+    sys.stderr.flush()
 
 def main():
     while 1:
         # transition from ACKNOWLEDGED to READY
-        write_stdout('READY\n')
+        #write_stdout('READY\n')
+	headers, body = listener.wait(sys.stdin, sys.stdout)
 
         # read header line and print it to stderr
-        line = sys.stdin.readline()
+	body = dict([pair.split(":") for pair in body.split(" ")])
+	message = instanceDetails + "\n" + str(body)
 
-        # read event payload and print it to stderr
-        headers = dict([ x.split(':') for x in line.split() ])
-        data = sys.stdin.read(int(headers['len']))
-        print(headers)
         if 'PROCESS_STATE_STARTING' == headers['eventname']:
             attachments = []
-            attachment = {"title": cfg.messages.start.title, "color": "warning", "text": cfg.messages.start.text}
+            attachment = {"title": cfg.messages.start.title, "color": "warning", "text" : message }
             attachments.append(attachment)
             slack.notify(attachments=attachments)
 
         elif 'PROCESS_STATE_STARTED' == headers['eventname'] or 'PROCESS_STATE_RUNNING' == headers['eventname']:
             attachments = []
-            attachment = {"title": cfg.messages.running.title, "color": "good", "text": cfg.messages.running.text}
+            attachment = {"title": cfg.messages.running.title, "color": "good", "text": message }
             attachments.append(attachment)
             slack.notify(attachments=attachments)
 
         elif 'PROCESS_STATE_EXITED' == headers['eventname'] or 'PROCESS_STATE_STOPPED' == headers['eventname']:
             attachments = []
-            attachment = {"title": cfg.messages.stop.title, "color": "danger", "text": cfg.messages.stop.text}
+            attachment = {"title": cfg.messages.stop.title, "color": "danger", "text": message }
             attachments.append(attachment)
             slack.notify(attachments=attachments)
 
         elif 'PROCESS_STATE_FATAL' == headers['eventname']:
             attachments = []
-            attachment = {"title": cfg.messages.fatal.title, "color": "danger", "text": cfg.messages.fatal.text}
+            attachment = {"title": cfg.messages.fatal.title, "color": "danger", "text": message }
             attachments.append(attachment)
             slack.notify(attachments=attachments)
 
